@@ -10,6 +10,7 @@ oauth_user which is username@gmail.com or username@googlemail.com.
 
 Also use_xoauth needs to be set to true under the same.
 xoauth.py required for above has been included.To be used with gmail IMAP only.
+If use_xoauth is true, no need to specify password. (Thats the whole point!)
 
 License: Whatever license mentioned in each file applies to the content of the file.
 
