@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 '''A reliable mail-retriever toolkit.
 
 getmail is a reliable, modular, extensible mail retriever with support for

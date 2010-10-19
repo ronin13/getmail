@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.3
+#!/usr/bin/env python2
 '''Base and mix-in classes implementing retrievers (message sources getmail can
 retrieve mail from).
 

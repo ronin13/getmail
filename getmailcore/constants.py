@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.3
+#!/usr/bin/env python2
 
 # Log levels
 (TRACE, DEBUG, MOREINFO, INFO, WARNING, ERROR, CRITICAL) = range(1, 8)

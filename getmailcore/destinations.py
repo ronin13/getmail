@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.3
+#!/usr/bin/env python2
 '''Classes implementing destinations (files, directories, or programs getmail
 can deliver mail to).
 
