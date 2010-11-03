@@ -122,10 +122,16 @@ class updatefile(object):
     def close(self):
         if self.closed or not hasattr(self, 'file'):
             return
-        self.file.flush()
+        try:
+            self.file.flush()
+        except IOError,e:
+            raise IOError('ALERT: Failed at flushing:' + str(e.errno)) 
         os.fsync(self.file.fileno())
         self.file.close()
-        os.rename(self.tmpname, self.filename)
+        try:
+        	os.rename(self.tmpname, self.filename)
+        except IOError,e:
+        	raise IOError('ALERT: Failed at rename:' + str(e.errno))
         self.closed = True
 
 #######################################
