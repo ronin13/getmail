@@ -30,6 +30,8 @@ import tempfile
 import types
 import email.Utils
 
+import subprocess
+import shlex
 import pwd
 
 from getmailcore.exceptions import *
@@ -590,7 +592,7 @@ class MDA_qmaillocal(DeliverySkeleton, ForkingBase):
         return 'MDA_qmaillocal (%s)' % info
 
 #######################################
-class MDA_external(DeliverySkeleton, ForkingBase):
+class MDA_external(DeliverySkeleton):
     '''Arbitrary external MDA destination.
 
     Parameters:
@@ -667,56 +669,11 @@ class MDA_external(DeliverySkeleton, ForkingBase):
         self.log.info('MDA_external(%s)\n' % self._confstring())
 
 
-
-    #def _deliver_command(self, msg, msginfo, delivered_to, received,
-                         #stdout, stderr):
-        #try:
-            ## Write out message with native EOL convention
-            #msgfile = tempfile.TemporaryFile()
-            #msgfile.write(msg.flatten(delivered_to, received,
-                                      #include_from=self.conf['unixfrom']))
-            #msgfile.flush()
-            #os.fsync(msgfile.fileno())
-            ## Rewind
-            #msgfile.seek(0)
-            ## Set stdin to read from this file
-            #os.dup2(msgfile.fileno(), 0)
-            ## Set stdout and stderr to write to files
-            #os.dup2(stdout.fileno(), 1)
-            #os.dup2(stderr.fileno(), 2)
-            #change_usergroup(self.log, self.conf['user'], self.conf['group'])
-            ## At least some security...
-            #if ((os.geteuid() == 0 or os.getegid() == 0)
-                    #and not self.conf['allow_root_commands']):
-                #raise getmailConfigurationError(
-                    #'refuse to invoke external commands as root '
-                    #'or GID 0 by default'
-                #)
-            #args = [self.conf['path'], self.conf['path']]
-            #for arg in self.conf['arguments']:
-                #arg = expand_user_vars(arg)
-                #for (key, value) in msginfo.items():
-                    #arg = arg.replace('%%(%s)' % key, value)
-                #args.append(arg)
-            #self.log.debug('about to execl() with args %s\n' % str(args))
-            #os.execl(*args)
-        #except StandardError, o:
-            ## Child process; any error must cause us to exit nonzero for parent
-            ## to detect it
-            #stderr.write('exec of command %s failed (%s)'
-                         #% (self.conf['command'], o))
-            #stderr.flush()
-            #os.fsync(stderr.fileno())
-            #os._exit(127)
-    
-    def _deliver_command(self, msg, msginfo, delivered_to, received,
-                         stdout, stderr):
-
-        from subprocess import *
+    def _deliver_command(self, msg, msginfo, delivered_to, received):
+        rcode,pid,out,err = (0,0,"","")
         try:
             # Write out message with native EOL convention
-            message = msg.flatten(delivered_to, received,
-                                      include_from=self.conf['unixfrom']))
+            message = msg.flatten(delivered_to, received,include_from=self.conf['unixfrom'])
             change_usergroup(self.log, self.conf['user'], self.conf['group'])
             # At least some security...
             if ((os.geteuid() == 0 or os.getegid() == 0)
@@ -732,29 +689,25 @@ class MDA_external(DeliverySkeleton, ForkingBase):
                 for (key, value) in msginfo.items():
                     arg = arg.replace('%%(%s)' % key, value)
                 args.append(arg)
-            self.log.debug('about to execl() with args %s\n' % str(args))
-
-            dm = Popen("%s"%(*args),shell=True,executable="/bin/sh",stdin=PIPE)
-            #os.execl(*args)
-            dm.communicate(message)
-
-            if (Popen.returncode != 0) :
-                stderr.write('exec of command %s failed '
-                         % (self.conf['command']))
-                stderr.flush()
-            	os._exit(127)
+            self.log.debug('about to run external with args %s\n' % str(args))
+            args=shlex.split(" ".join(args))
+            dm = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            out,err = dm.communicate(message)
+            rcode,pid = (dm.returncode,dm.pid)
         except StandardError, o:
             # Child process; any error must cause us to exit nonzero for parent
             # to detect it
-            stderr.write('exec of command %s failed (%s)'
-                         % (self.conf['command'], o))
-            stderr.flush()
+            err+="exec of command %s failed (%s)"% (self.conf['command'], o)
+            #print err
+            #ostderr.flush()
             #os.fsync(stderr.fileno())
             os._exit(127)
+        finally:
+                return (int(rcode),int(pid),str(out),str(err))
 
     def _deliver_message(self, msg, delivered_to, received):
         self.log.trace()
-        self._prepare_child()
+        #self._prepare_child()
         msginfo = {}
         msginfo['sender'] = msg.sender
         if msg.recipient != None:
@@ -763,42 +716,19 @@ class MDA_external(DeliverySkeleton, ForkingBase):
             msginfo['local'] = '@'.join(msg.recipient.split('@')[:-1])
         self.log.debug('msginfo "%s"\n' % msginfo)
 
-        stdout = tempfile.TemporaryFile()
-        stderr = tempfile.TemporaryFile()
-        childpid = os.fork()
-
-        if not childpid:
-            # Child
-            self._deliver_command(msg, msginfo, delivered_to, received,
-                                  stdout, stderr)
+        exitcode,childpid,out,err = self._deliver_command(msg, msginfo, delivered_to, received)
         self.log.debug('spawned child %d\n' % childpid)
 
-        # Parent
-        exitcode = self._wait_for_child(childpid)
-
-        stdout.seek(0)
-        stderr.seek(0)
-        out = stdout.read().strip()
-        err = stderr.read().strip()
 
         self.log.debug('command %s %d exited %d\n'
                        % (self.conf['command'], childpid, exitcode))
 
         if exitcode:
+            self.log.debug('command %s: %s' % (self, err))
             raise getmailDeliveryError(
                 'command %s %d error (%d, %s)'
                 % (self.conf['command'], childpid, exitcode, err)
             )
-        elif err:
-            if not self.conf['ignore_stderr']:
-                raise getmailDeliveryError(
-                    'command %s %d wrote to stderr: %s'
-                    % (self.conf['command'], childpid, err)
-                )
-            #else:
-            # User said to ignore stderr, just log it.
-            self.log.info('command %s: %s' % (self, err))
-
         return 'MDA_external command %s (%s)' % (self.conf['command'], out)
 
 #######################################

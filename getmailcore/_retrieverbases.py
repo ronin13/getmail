@@ -206,7 +206,7 @@ class IMAPinitMixIn(object):
             self.conn = imaplib.IMAP4(self.conf['server'], self.conf['port'])
             if self.conf['use_xoauth']:
                 xoauth_string=self.conf['xoauth_string']
-            	self.conn.authenticate('XOAUTH', lambda x: xoauth_string)
+                self.conn.authenticate('XOAUTH', lambda x: xoauth_string)
         except imaplib.IMAP4.error, o:
             raise getmailOperationError('IMAP error (%s)' % o)
         except socket.timeout:
@@ -429,7 +429,7 @@ class RetrieverSkeleton(ConfigurableBase):
             r'[/\:;<>|]+', '-',
             'oldmail-%(server)s-%(port)i-%(username)s' % self.conf
         )
-        self.oldmail_filename = os.path.join(self.conf['getmaildir'], 
+        self.oldmail_filename = os.path.join(self.conf['getmaildir'],
                                              oldmail_filename)
         self._read_oldmailfile()
         self.received_from = '%s (%s)' % (
@@ -552,7 +552,7 @@ class POP3RetrieverBase(RetrieverSkeleton):
             return msg
         except poplib.error_proto, o:
             raise getmailRetrievalError(
-                'failed to retrieve msgid %s; server said %s' 
+                'failed to retrieve msgid %s; server said %s'
                 % (msgid, o)
             )
 
@@ -707,7 +707,7 @@ class IMAPRetrieverBase(RetrieverSkeleton):
                 response = kerberos.authGSSClientResponse(self.gss_vc)
             rc = kerberos.authGSSClientStep(self.gss_vc, data)
             if rc != kerberos.AUTH_GSS_CONTINUE:
-               self.gss_step = GSS_STATE_WRAP
+                self.gss_step = GSS_STATE_WRAP
         elif self.gss_step == GSS_STATE_WRAP:
             rc = kerberos.authGSSClientUnwrap(self.gss_vc, data)
             response = kerberos.authGSSClientResponse(self.gss_vc)
@@ -880,7 +880,7 @@ class IMAPRetrieverBase(RetrieverSkeleton):
                 # server gave a negative/NO response, most likely.  Bad server,
                 # no doughnut.
                 raise getmailRetrievalError(
-                    'failed to retrieve msgid %s; server said %s' 
+                    'failed to retrieve msgid %s; server said %s'
                     % (msgid, o)
                 )
             # Response is really ugly:
@@ -893,7 +893,7 @@ class IMAPRetrieverBase(RetrieverSkeleton):
             #   ')',
             #   <maybe more>
             # ]
-            
+
             # MSExchange is broken -- if a message is badly formatted enough
             # (virus, spam, trojan), it can completely fail to return the
             # message when requested.
@@ -901,7 +901,7 @@ class IMAPRetrieverBase(RetrieverSkeleton):
                 msg = Message(fromstring=response[0][1])
             except TypeError, o:
                 # response[0] is None instead of a message tuple
-                raise getmailRetrievalError('failed to retrieve msgid %s' 
+                raise getmailRetrievalError('failed to retrieve msgid %s'
                                             % msgid)
             return msg
 
@@ -911,11 +911,11 @@ class IMAPRetrieverBase(RetrieverSkeleton):
     def _getmsgbyid(self, msgid):
         self.log.trace()
         return self._getmsgpartbyid(msgid, '(RFC822)')
-    
+
     def generateAuth(self,token,token_secret):
-    	access_token = OAuthEntity(token, token_secret)
-    	consumer = OAuthEntity('anonymous','anonymous')
-    	xoauth_string = GenerateXOauthString(
+        access_token = OAuthEntity(token, token_secret)
+        consumer = OAuthEntity('anonymous','anonymous')
+        xoauth_string = GenerateXOauthString(
         consumer, access_token, self.conf['oauth_user'], 'imap',
         '','','')
         return xoauth_string
@@ -949,7 +949,7 @@ class IMAPRetrieverBase(RetrieverSkeleton):
                 token=self.conf['oauth_token']
                 token_secret=self.conf['oauth_token_secret']
                 xoauth_string = self.generateAuth(token,token_secret)
-            	self.conn.authenticate('XOAUTH', lambda x: xoauth_string)
+                self.conn.authenticate('XOAUTH', lambda x: xoauth_string)
             else:
                 self._parse_imapcmdresponse('login', self.conf['username'],
                                             self.conf['password'])

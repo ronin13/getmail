@@ -17,4 +17,3 @@ if sys.hexversion < 0x2040000:
     frozenset = sets.ImmutableSet
 set = set
 frozenset = frozenset
-
