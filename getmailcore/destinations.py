@@ -666,22 +666,57 @@ class MDA_external(DeliverySkeleton, ForkingBase):
     def showconf(self):
         self.log.info('MDA_external(%s)\n' % self._confstring())
 
+
+
+    #def _deliver_command(self, msg, msginfo, delivered_to, received,
+                         #stdout, stderr):
+        #try:
+            ## Write out message with native EOL convention
+            #msgfile = tempfile.TemporaryFile()
+            #msgfile.write(msg.flatten(delivered_to, received,
+                                      #include_from=self.conf['unixfrom']))
+            #msgfile.flush()
+            #os.fsync(msgfile.fileno())
+            ## Rewind
+            #msgfile.seek(0)
+            ## Set stdin to read from this file
+            #os.dup2(msgfile.fileno(), 0)
+            ## Set stdout and stderr to write to files
+            #os.dup2(stdout.fileno(), 1)
+            #os.dup2(stderr.fileno(), 2)
+            #change_usergroup(self.log, self.conf['user'], self.conf['group'])
+            ## At least some security...
+            #if ((os.geteuid() == 0 or os.getegid() == 0)
+                    #and not self.conf['allow_root_commands']):
+                #raise getmailConfigurationError(
+                    #'refuse to invoke external commands as root '
+                    #'or GID 0 by default'
+                #)
+            #args = [self.conf['path'], self.conf['path']]
+            #for arg in self.conf['arguments']:
+                #arg = expand_user_vars(arg)
+                #for (key, value) in msginfo.items():
+                    #arg = arg.replace('%%(%s)' % key, value)
+                #args.append(arg)
+            #self.log.debug('about to execl() with args %s\n' % str(args))
+            #os.execl(*args)
+        #except StandardError, o:
+            ## Child process; any error must cause us to exit nonzero for parent
+            ## to detect it
+            #stderr.write('exec of command %s failed (%s)'
+                         #% (self.conf['command'], o))
+            #stderr.flush()
+            #os.fsync(stderr.fileno())
+            #os._exit(127)
+    
     def _deliver_command(self, msg, msginfo, delivered_to, received,
                          stdout, stderr):
+
+        from subprocess import *
         try:
             # Write out message with native EOL convention
-            msgfile = tempfile.TemporaryFile()
-            msgfile.write(msg.flatten(delivered_to, received,
+            message = msg.flatten(delivered_to, received,
                                       include_from=self.conf['unixfrom']))
-            msgfile.flush()
-            os.fsync(msgfile.fileno())
-            # Rewind
-            msgfile.seek(0)
-            # Set stdin to read from this file
-            os.dup2(msgfile.fileno(), 0)
-            # Set stdout and stderr to write to files
-            os.dup2(stdout.fileno(), 1)
-            os.dup2(stderr.fileno(), 2)
             change_usergroup(self.log, self.conf['user'], self.conf['group'])
             # At least some security...
             if ((os.geteuid() == 0 or os.getegid() == 0)
@@ -690,21 +725,31 @@ class MDA_external(DeliverySkeleton, ForkingBase):
                     'refuse to invoke external commands as root '
                     'or GID 0 by default'
                 )
-            args = [self.conf['path'], self.conf['path']]
+            #args = [self.conf['path'], self.conf['path']]
+            args = [self.conf['path']]
             for arg in self.conf['arguments']:
                 arg = expand_user_vars(arg)
                 for (key, value) in msginfo.items():
                     arg = arg.replace('%%(%s)' % key, value)
                 args.append(arg)
             self.log.debug('about to execl() with args %s\n' % str(args))
-            os.execl(*args)
+
+            dm = Popen("%s"%(*args),shell=True,executable="/bin/sh",stdin=PIPE)
+            #os.execl(*args)
+            dm.communicate(message)
+
+            if (Popen.returncode != 0) :
+                stderr.write('exec of command %s failed '
+                         % (self.conf['command']))
+                stderr.flush()
+            	os._exit(127)
         except StandardError, o:
             # Child process; any error must cause us to exit nonzero for parent
             # to detect it
             stderr.write('exec of command %s failed (%s)'
                          % (self.conf['command'], o))
             stderr.flush()
-            os.fsync(stderr.fileno())
+            #os.fsync(stderr.fileno())
             os._exit(127)
 
     def _deliver_message(self, msg, delivered_to, received):
